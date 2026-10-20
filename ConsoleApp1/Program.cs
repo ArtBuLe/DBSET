@@ -1,43 +1,62 @@
-﻿using System;
+﻿using ConsoleApp1;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using System.Security.AccessControl;
-using ConsoleApp1;
-
+using Microsoft.Extensions.Hosting;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-string ConnString = builder.Configuration.GetConnectionString("Default") ?? throw new Exception();
-builder.Services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(ConnString));
+string connectionString =
+    builder.Configuration.GetConnectionString("Default")
+    ?? throw new InvalidOperationException(
+        "Не найдена строка подключения DefaultConnection.");
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(connectionString));
 
 using var host = builder.Build();
-
 using var scope = host.Services.CreateScope();
 
-var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+var db = scope.ServiceProvider
+    .GetRequiredService<AppDbContext>();
 
-bool canConnect = await db.Database.CanConnectAsync();
-
-if (!canConnect)
+try
 {
-    Console.WriteLine("Connect incomplete...");
-    return;
+    bool canConnect = await db.Database.CanConnectAsync();
+
+    if (!canConnect)
+    {
+        Console.WriteLine("Не удалось подключиться к PostgreSQL.");
+        return;
+    }
+
+    Console.WriteLine("Подключение к PostgreSQL успешно!");
+    Console.WriteLine(
+        $"База данных: {db.Database.GetDbConnection().Database}");
+
+    var students = await db.Students.ToListAsync();
+
+    if (students.Count == 0)
+    {
+        Console.WriteLine("Студентов пока нет.");
+    }
+    else
+    {
+        Console.WriteLine("\n=== Список студентов ===");
+
+        foreach (var student in students)
+        {
+            Console.WriteLine(
+                $"{student.Id}: {student.FirstName} " +
+                $"{student.LastName}, возраст: {student.Age}");
+        }
+    }
+
+    Console.WriteLine($"\nВсего студентов: {students.Count}");
 }
-Console.WriteLine("Connect complete!");
-Console.WriteLine("DB : ", db.Database.GetDbConnection().Database);
-
-var students = await db.Students.ToListAsync();
-
-foreach (var st in students)
+catch (Exception ex)
 {
-    Console.WriteLine
-        (
-        $"{st.Id,-5} : {st.FirstName,-10} " +
-        $"{st.LastName,-10} " +
-        $"Age = {st.Age}" 
-        );
+    Console.WriteLine($"Ошибка работы с базой данных: {ex.Message}");
 }
 
 
