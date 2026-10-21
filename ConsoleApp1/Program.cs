@@ -6,19 +6,20 @@ using Microsoft.Extensions.Hosting;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-string connectionString =
-    builder.Configuration.GetConnectionString("Default")
-    ?? throw new InvalidOperationException(
-        "Не найдена строка подключения DefaultConnection.");
+string connectionString = builder.Configuration.GetConnectionString("Default") ?? throw new InvalidOperationException
+    (
+        "Не найдена строка подключения DefaultConnection."
+    );
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+builder.Services.AddDbContext<AppDbContext>
+(
+options => options.UseNpgsql(connectionString)
+);
 
 using var host = builder.Build();
 using var scope = host.Services.CreateScope();
 
-var db = scope.ServiceProvider
-    .GetRequiredService<AppDbContext>();
+var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
 try
 {
@@ -31,8 +32,10 @@ try
     }
 
     Console.WriteLine("Подключение к PostgreSQL успешно!");
-    Console.WriteLine(
-        $"База данных: {db.Database.GetDbConnection().Database}");
+    Console.WriteLine
+    (
+        $"База данных: {db.Database.GetDbConnection().Database}"
+    );
 
     var students = await db.Students.ToListAsync();
 
@@ -46,9 +49,11 @@ try
 
         foreach (var student in students)
         {
-            Console.WriteLine(
+            Console.WriteLine
+            (
                 $"{student.Id}: {student.FirstName} " +
-                $"{student.LastName}, возраст: {student.Age}");
+                $"{student.LastName}, возраст: {student.Age}"
+            );
         }
     }
 
