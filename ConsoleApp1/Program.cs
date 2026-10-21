@@ -64,14 +64,14 @@ try
 
 
     Console.WriteLine("=== П1 ===");
-    Console.Write("Минимальный возраст: ");
-    int minAge = Convert.ToInt32(Console.ReadLine()!);
+    Console.Write("Минимальный возраст: \n");
+    int minAge = 1; //Convert.ToInt32(Console.ReadLine()!);
 
-    Console.Write("Максимальный возраст: ");
-    int maxAge = Convert.ToInt32(Console.ReadLine()!);
+    Console.Write("Максимальный возраст: \n");
+    int maxAge = 25; //Convert.ToInt32(Console.ReadLine()!);
 
-    Console.Write("Номер страницы: ");
-    int page = Convert.ToInt32(Console.ReadLine()!);
+    Console.Write("Номер страницы: \n");
+    int page = 1; //Convert.ToInt32(Console.ReadLine()!);
 
     const int pageSize = 3;
 
@@ -212,6 +212,184 @@ try
         );
     }
 
+
+    Console.WriteLine("\n\n=== NEXT TASK ===");
+    Console.WriteLine("=== П1 ===");
+
+    Console.WriteLine("1. Показать всех студентов с группами");
+    Console.WriteLine("2. Добавить нового студента");
+    Console.WriteLine("3. Изменить возраст студента по Id");
+    Console.WriteLine("4. Удалить студента по Id");
+    Console.Write("Выберите действие (1-4): ");
+
+    string choice = Console.ReadLine()?.Trim() ?? "";
+
+    switch (choice)
+    {
+        //show all
+        case "1":
+            var studentsWithGroups = await db.Students
+                .Include(s => s.Group)
+                .OrderBy(s => s.LastName)
+                .ToListAsync();
+
+            Console.WriteLine("\nСписок студентов:");
+            if (studentsWithGroups.Count == 0)
+            {
+                Console.WriteLine("Студентов пока нет.");
+            }
+            else
+            {
+                foreach (var s in studentsWithGroups)
+                {
+                    Console.WriteLine($"[{s.Id}] {s.FirstName} {s.LastName}, {s.Age} лет. Группа: {s.Group?.Name ?? "Не назначена"}");
+                }
+            }
+            break;
+
+        //add
+        case "2":
+            Console.Write("Имя: ");
+            string firstName = Console.ReadLine()?.Trim() ?? "";
+            Console.Write("Фамилия: ");
+            string lastName = Console.ReadLine()?.Trim() ?? "";
+            Console.Write("Возраст: ");
+            int.TryParse(Console.ReadLine(), out int age);
+            Console.Write("Id группы: ");
+            int.TryParse(Console.ReadLine(), out int groupId);
+
+            if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
+            {
+                Console.WriteLine(" Ошибка: Имя и фамилия не могут быть пустыми.");
+            }
+            else if (age <= 0)
+            {
+                Console.WriteLine(" Ошибка: Возраст должен быть больше нуля.");
+            }
+            else
+            {
+                bool groupExists = await db.Groups.AnyAsync(g => g.Id == groupId);
+                if (!groupExists)
+                {
+                    Console.WriteLine($" Ошибка: Группа с Id {groupId} не найдена.");
+                }
+                else
+                {
+                    var newStudent = new Student
+                    {
+                        FirstName = firstName,
+                        LastName = lastName,
+                        Age = age,
+                        GroupId = groupId
+                    };
+
+                    db.Students.Add(newStudent);
+                    await db.SaveChangesAsync();
+
+                    Console.WriteLine($" Студент добавлен. Присвоенный Id: {newStudent.Id}");
+                }
+            }
+            break;
+
+        //change age
+        case "3":
+            Console.Write("Введите Id студента для изменения возраста: ");
+            int.TryParse(Console.ReadLine(), out int updateId);
+
+            var studentToUpdate = await db.Students.FirstOrDefaultAsync(s => s.Id == updateId);
+
+            if (studentToUpdate == null)
+            {
+                Console.WriteLine(" Ошибка: Студент с таким Id не найден.");
+            }
+            else
+            {
+                Console.Write($"Текущий возраст: {studentToUpdate.Age}. Введите новый возраст: ");
+                int.TryParse(Console.ReadLine(), out int newAge);
+
+                if (newAge > 0)
+                {
+                    studentToUpdate.Age = newAge;
+                    await db.SaveChangesAsync();
+                    Console.WriteLine(" Возраст студента изменён.");
+                }
+                else
+                {
+                    Console.WriteLine(" Ошибка: Возраст должен быть больше нуля.");
+                }
+            }
+            break;
+            
+        //remove
+        case "4":
+            Console.Write("Введите Id студента для удаления: ");
+            int.TryParse(Console.ReadLine(), out int deleteId);
+
+            var studentToDelete = await db.Students.FirstOrDefaultAsync(s => s.Id == deleteId);
+
+            if (studentToDelete == null)
+            {
+                Console.WriteLine(" Ошибка: Студент с таким Id не найден.");
+            }
+            else
+            {
+                db.Students.Remove(studentToDelete);
+                await db.SaveChangesAsync();
+                Console.WriteLine(" Студент удалён.");
+            }
+            break;
+
+        default:
+            Console.WriteLine(" Неверный выбор. Введите число от 1 до 4.");
+            break;
+    }
+
+    Console.WriteLine("\n\n=== П2 ===");
+    Console.Write("Введите Id студента для перевода: ");
+    int.TryParse(Console.ReadLine(), out int transferId);
+
+    var studentToTransfer = await db.Students
+        .Include(s => s.Group)
+        .FirstOrDefaultAsync(s => s.Id == transferId);
+
+    if (studentToTransfer == null)
+    {
+        Console.WriteLine(" Ошибка: Студент с таким Id не найден.");
+    }
+    else
+    {
+        Console.WriteLine($"\nСтудент: {studentToTransfer.FirstName} {studentToTransfer.LastName}");
+        Console.WriteLine($"Текущая группа: {studentToTransfer.Group?.Name ?? "Не назначена"} (Id группы: {studentToTransfer.GroupId})");
+
+        var availableGroups = await db.Groups.OrderBy(g => g.Name).ToListAsync();
+        Console.WriteLine("\nДоступные группы:");
+        foreach (var g in availableGroups)
+        {
+            Console.WriteLine($"  [{g.Id}] {g.Name}");
+        }
+
+        Console.Write("\nВведите Id новой группы: ");
+        int.TryParse(Console.ReadLine(), out int newGroupId);
+
+        bool targetGroupExists = await db.Groups.AnyAsync(g => g.Id == newGroupId);
+
+        if (!targetGroupExists)
+        {
+            Console.WriteLine(" Ошибка: Указанная группа не найдена.");
+        }
+        else if (newGroupId == studentToTransfer.GroupId)
+        {
+            Console.WriteLine("Студент уже находится в этой группе.");
+        }
+        else
+        {
+            studentToTransfer.GroupId = newGroupId;
+            await db.SaveChangesAsync();
+
+            studentToTransfer.Group = availableGroups.First(g => g.Id == newGroupId);
+            Console.WriteLine($"Cтудент переведён в группу \"{studentToTransfer.Group.Name}\".");
+        }
+    }
 }
 catch (Exception ex)
 {
