@@ -3,9 +3,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 var builder = Host.CreateApplicationBuilder(args);
-
+builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.None);
 string connectionString = builder.Configuration.GetConnectionString("Default") ?? throw new InvalidOperationException
     (
         "Не найдена строка подключения DefaultConnection."
@@ -58,17 +59,97 @@ try
     }
 
     Console.WriteLine($"\nВсего студентов: {students.Count}");
+
+
+    Console.WriteLine("=== П1 ===");
+    Console.Write("Минимальный возраст: ");
+    int minAge = Convert.ToInt32(Console.ReadLine()!);
+
+    Console.Write("Максимальный возраст: ");
+    int maxAge = Convert.ToInt32(Console.ReadLine()!);
+
+    Console.Write("Номер страницы: ");
+    int page = Convert.ToInt32(Console.ReadLine()!);
+
+    const int pageSize = 3;
+
+    var searchQuery = db.Students
+        .Where(s => s.Age >= minAge && s.Age <= maxAge)
+        .OrderBy(s => s.LastName)
+        .ThenBy(s => s.FirstName)
+        .Select(s => new
+        {
+            s.FirstName,
+            s.LastName,
+            s.Age
+        })
+        .Skip((page - 1) * pageSize)
+        .Take(pageSize);
+
+    var searchResults = await searchQuery.ToListAsync();
+
+    Console.WriteLine("\n=== Результат поиска ===");
+    if (searchResults.Count == 0)
+    {
+        Console.WriteLine("Студенты не найдены.");
+    }
+    else
+    {
+        foreach (var student in searchResults)
+        {
+            Console.WriteLine($"{student.FirstName} {student.LastName}, {student.Age}");
+        }
+    }
+
+    bool less_than_18 = await db.Students.AnyAsync(s => s.Age < 18);
+    Console.WriteLine($"\nЕсть несовершеннолетние студенты: {less_than_18}");
+
+
+    Console.WriteLine("\n\n=== П2 ===");
+
+    var Stats = await db.Students
+       .GroupBy(s => 1)
+       .Select(g => new
+       {
+           TotalCount = g.Count(),
+           AverageAge = g.Average(s => s.Age),
+           MinAge = g.Min(s => s.Age),
+           MaxAge = g.Max(s => s.Age)
+       })
+       .FirstOrDefaultAsync();
+
+    if (Stats != null && Stats.TotalCount > 0)
+    {
+        Console.WriteLine($"Всего студентов: {Stats.TotalCount}\n");
+        Console.WriteLine($"Минимальный возраст: {Stats.MinAge}");
+        Console.WriteLine($"Средний возраст: {Stats.AverageAge:F1}");
+        Console.WriteLine($"Максимальный возраст: {Stats.MaxAge}");
+    }
+    else
+    {
+        Console.WriteLine("В базе нет студентов для аналитики.");
+    }
+
+    var Ages = await db.Students
+        .GroupBy(s => s.Age)
+        .Select(g => new 
+        {
+        Age = g.Key, 
+        Count = g.Count()
+        })
+        .OrderBy(x => x.Age)
+        .ToListAsync();
+
+    Console.WriteLine("\nРаспределение по возрасту:");
+    foreach (var item in Ages)
+    {
+        Console.WriteLine($"{item.Age} лет — {item.Count}");
+    }
+    bool allAdults = await db.Students.AllAsync(s => s.Age >= 18);
+    Console.WriteLine($"\nВсе студенты совершеннолетние: {allAdults}");
+
 }
 catch (Exception ex)
 {
     Console.WriteLine($"Ошибка работы с базой данных: {ex.Message}");
 }
-
-
-//Какова основная задача DbContext? - Управлять взаимодействием приложения с EF Core и базой данных
-
-//Что представляет собой DbSet? - Набор сущностей Student, доступный через контекст
-
-//Что делает AddDbContext? - Регистрирует контекст в контейнере зависимостей
-
-//Когда выполняется запрос в выражении db.Students.ToListAsync()? - При материализации запроса через ToListAsync
