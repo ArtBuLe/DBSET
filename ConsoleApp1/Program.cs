@@ -220,6 +220,7 @@ try
     Console.WriteLine("2. Добавить нового студента");
     Console.WriteLine("3. Изменить возраст студента по Id");
     Console.WriteLine("4. Удалить студента по Id");
+    Console.WriteLine("5. Перевести студента в другую группу");
     Console.Write("Выберите действие (1-4): ");
 
     string choice = Console.ReadLine()?.Trim() ?? "";
@@ -339,57 +340,63 @@ try
             }
             break;
 
+        //перевод студента
+        case "5":
+            Console.WriteLine("\n\n=== П2 ===");
+            Console.Write("Введите Id студента для перевода: ");
+            int.TryParse(Console.ReadLine(), out int transferId);
+
+            var studentToTransfer = await db.Students
+                .Include(s => s.Group)
+                .FirstOrDefaultAsync(s => s.Id == transferId);
+
+            if (studentToTransfer == null)
+            {
+                Console.WriteLine(" Ошибка: Студент с таким Id не найден.");
+            }
+            else
+            {
+                Console.WriteLine($"\nСтудент: {studentToTransfer.FirstName} {studentToTransfer.LastName}");
+                Console.WriteLine($"Текущая группа: {studentToTransfer.Group?.Name ?? "Не назначена"} (Id группы: {studentToTransfer.GroupId})");
+
+                var availableGroups = await db.Groups.OrderBy(g => g.Name).ToListAsync();
+                Console.WriteLine("\nДоступные группы:");
+                foreach (var g in availableGroups)
+                {
+                    Console.WriteLine($"  [{g.Id}] {g.Name}");
+                }
+
+                Console.Write("\nВведите Id новой группы: ");
+                int.TryParse(Console.ReadLine(), out int newGroupId);
+
+                bool targetGroupExists = await db.Groups.AnyAsync(g => g.Id == newGroupId);
+
+                if (!targetGroupExists)
+                {
+                    Console.WriteLine(" Ошибка: Указанная группа не найдена.");
+                }
+                else if (newGroupId == studentToTransfer.GroupId)
+                {
+                    Console.WriteLine("Студент уже находится в этой группе.");
+                }
+                else
+                {
+                    studentToTransfer.GroupId = newGroupId;
+                    await db.SaveChangesAsync();
+
+                    studentToTransfer.Group = availableGroups.First(g => g.Id == newGroupId);
+                    Console.WriteLine($"Cтудент переведён в группу \"{studentToTransfer.Group.Name}\".");
+                }
+            }
+            break;
+
+
         default:
             Console.WriteLine(" Неверный выбор. Введите число от 1 до 4.");
             break;
     }
 
-    Console.WriteLine("\n\n=== П2 ===");
-    Console.Write("Введите Id студента для перевода: ");
-    int.TryParse(Console.ReadLine(), out int transferId);
-
-    var studentToTransfer = await db.Students
-        .Include(s => s.Group)
-        .FirstOrDefaultAsync(s => s.Id == transferId);
-
-    if (studentToTransfer == null)
-    {
-        Console.WriteLine(" Ошибка: Студент с таким Id не найден.");
-    }
-    else
-    {
-        Console.WriteLine($"\nСтудент: {studentToTransfer.FirstName} {studentToTransfer.LastName}");
-        Console.WriteLine($"Текущая группа: {studentToTransfer.Group?.Name ?? "Не назначена"} (Id группы: {studentToTransfer.GroupId})");
-
-        var availableGroups = await db.Groups.OrderBy(g => g.Name).ToListAsync();
-        Console.WriteLine("\nДоступные группы:");
-        foreach (var g in availableGroups)
-        {
-            Console.WriteLine($"  [{g.Id}] {g.Name}");
-        }
-
-        Console.Write("\nВведите Id новой группы: ");
-        int.TryParse(Console.ReadLine(), out int newGroupId);
-
-        bool targetGroupExists = await db.Groups.AnyAsync(g => g.Id == newGroupId);
-
-        if (!targetGroupExists)
-        {
-            Console.WriteLine(" Ошибка: Указанная группа не найдена.");
-        }
-        else if (newGroupId == studentToTransfer.GroupId)
-        {
-            Console.WriteLine("Студент уже находится в этой группе.");
-        }
-        else
-        {
-            studentToTransfer.GroupId = newGroupId;
-            await db.SaveChangesAsync();
-
-            studentToTransfer.Group = availableGroups.First(g => g.Id == newGroupId);
-            Console.WriteLine($"Cтудент переведён в группу \"{studentToTransfer.Group.Name}\".");
-        }
-    }
+    
 }
 catch (Exception ex)
 {
