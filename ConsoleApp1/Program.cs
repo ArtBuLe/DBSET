@@ -1,4 +1,5 @@
 ﻿using ConsoleApp1;
+using ConsoleApp1.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +22,7 @@ using var host = builder.Build();
 using var scope = host.Services.CreateScope();
 
 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
 
 try
 {
@@ -122,7 +124,7 @@ try
     {
         Console.WriteLine($"Всего студентов: {Stats.TotalCount}\n");
         Console.WriteLine($"Минимальный возраст: {Stats.MinAge}");
-        Console.WriteLine($"Средний возраст: {Stats.AverageAge:F1}");
+        Console.WriteLine($"Средний возраст: {Stats.AverageAge}");
         Console.WriteLine($"Максимальный возраст: {Stats.MaxAge}");
     }
     else
@@ -147,6 +149,68 @@ try
     }
     bool allAdults = await db.Students.AllAsync(s => s.Age >= 18);
     Console.WriteLine($"\nВсе студенты совершеннолетние: {allAdults}");
+
+
+
+    Console.WriteLine("\n\n=== NEXT TASK ===");
+    Console.WriteLine("=== П1 ===");
+
+    var groupsWithStudents = await db.Set<CustomGroup>()
+        .Include(g => g.Students)
+        .OrderBy(g => g.Name)
+        .ToListAsync();
+
+    foreach (var group in groupsWithStudents)
+    {
+        Console.WriteLine($"\nГруппа: {group.Name}");
+        Console.WriteLine($"Количество студентов: {group.Students.Count}");
+
+        if (group.Students.Count == 0)
+        {
+            Console.WriteLine("В группе пока нет студентов.");
+        }
+        else
+        {
+            Console.WriteLine("Список студентов:");
+            foreach (var student in group.Students.OrderBy(s => s.LastName))
+            {
+                Console.WriteLine($"  - {student.FirstName} {student.LastName}");
+            }
+        }
+    }
+
+    Console.WriteLine("\n\n=== П2 ===");
+
+    var statistics = await db.Set<CustomGroup>()
+        .OrderBy(g => g.Name)
+        .Select(g => new
+        {
+            GroupName = g.Name,
+            StudentCount = g.Students.Count(),
+            less_than_18 = g.Students.Count(s => s.Age < 18),
+            AverageAge = g.Students
+                .Select(s => (double?)s.Age)
+                .Average(),
+            Has_less_18 = g.Students.Any(s => s.Age < 18)
+        })
+        .ToListAsync();
+
+    foreach (var item in statistics)
+    {
+        Console.WriteLine($"\nГруппа: {item.GroupName}");
+        Console.WriteLine($"Студентов: {item.StudentCount}");
+        Console.WriteLine($"Несовершеннолетних: {item.less_than_18}");
+
+        Console.WriteLine
+        (
+            item.AverageAge.HasValue ? $"Средний возраст: {item.AverageAge.Value:F1}" : "Средний возраст: нет данных"
+        );
+
+        Console.WriteLine
+        (
+            item.Has_less_18 ? "В группе есть несовершеннолетние" : "Несовершеннолетних нет" 
+        );
+    }
 
 }
 catch (Exception ex)
